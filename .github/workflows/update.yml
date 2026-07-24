@@ -1,0 +1,35 @@
+name: 更新中标数据
+
+on:
+  schedule:
+    - cron: '0 1 * * 1,3,5'   # UTC时间周一三五01:00，相当于北京时间早上9点
+  workflow_dispatch:           # 允许你在网页上手动点击运行，方便测试
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 运行抓取脚本
+        run: python scripts/scraper.py
+
+      - name: 提交更新的数据
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json
+          git diff --staged --quiet || git commit -m "自动更新中标数据 $(date +'%Y-%m-%d')"
+          git push
