@@ -7,10 +7,24 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
-# ===== 基本配置 =====
-LIST_URL_TEMPLATE = "https://chuneng.bjx.com.cn/zb/{}/"
-PAGES_TO_FETCH = 5           # 每次抓取列表的前几页(每页约60条),数字越大抓得越全,但越慢
-DATA_FILE = "docs/data.json" # 数据存放的位置
+# ===== 数据来源配置 =====
+# 以后想加新的网站，就在这个列表里再加一项即可
+SOURCES = [
+    {
+        "name": "北极星储能网",
+        "list_url": lambda p: "https://chuneng.bjx.com.cn/zb/" if p == 1 else f"https://chuneng.bjx.com.cn/zb/{p}/",
+        "link_pattern": r"news\.bjx\.com\.cn/html/\d+/\d+\.shtml",
+        "pages": 5,
+    },
+    {
+        "name": "碳索储能网",
+        "list_url": lambda p: f"https://cn.solarbe.com/shuju/cnzb?page={p}",
+        "link_pattern": r"cn\.solarbe\.com/news/\d+/\d+\.html",
+        "pages": 5,
+    },
+]
+
+DATA_FILE = "docs/data.json"  # 数据存放的位置
 
 HEADERS = {
     "User-Agent": (
@@ -19,7 +33,7 @@ HEADERS = {
     )
 }
 
-# 标题里出现这些词，才认为是"中标/结果类"信息（而不是单纯的招标公告）
+# 标题里出现这些词，才认为是"中标/结果类"信息（而不是单纯的招标公告或无关新闻）
 RESULT_KEYWORDS = ["中标", "成交", "预中标", "候选人", "入围", "签订", "遴选结果", "优选结果"]
 
 
@@ -42,9 +56,9 @@ def extract_price(title: str) -> str:
     return ""
 
 
-def fetch_list_page(page_num: int):
-    """抓取某一页的招标资讯列表，返回 [{title, link, date}, ...]"""
-    url = LIST_URL_TEMPLATE.format(page_num) if page_num > 1 else "https://chuneng.bjx.com.cn/zb/"
+def fetch_list_page(source: dict, page_num: int):
+    """抓取某个数据源某一页的列表，返回 [{title, link, date}, ...]"""
+    url = source["list_url"](page_num)
     resp = requests.get(url, headers=HEADERS, timeout=15)
     resp.encoding = "utf-8"
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -53,7 +67,7 @@ def fetch_list_page(page_num: int):
     seen_links = set()
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        if not re.search(r"news\.bjx\.com\.cn/html/\d+/\d+\.shtml", href):
+        if not re.search(source["link_pattern"], href):
             continue
         title = a.get_text(strip=True)
         if len(title) < 6 or href in seen_links:
@@ -89,29 +103,31 @@ def main():
     existing_links = {r["link"] for r in existing}
     new_records = []
 
-    for page in range(1, PAGES_TO_FETCH + 1):
-        try:
-            items = fetch_list_page(page)
-        except Exception as e:
-            print(f"第{page}页抓取失败：{e}")
-            continue
-
-        for it in items:
-            if not is_bid_result(it["title"]):
+    for source in SOURCES:
+        for page in range(1, source["pages"] + 1):
+            try:
+                items = fetch_list_page(source, page)
+            except Exception as e:
+                print(f"[{source['name']}] 第{page}页抓取失败：{e}")
                 continue
-            if it["link"] in existing_links:
-                continue
-            record = {
-                "date": it["date"],
-                "title": it["title"],
-                "link": it["link"],
-                "price": extract_price(it["title"]),
-                "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            }
-            new_records.append(record)
-            existing_links.add(it["link"])
 
-        time.sleep(1.5)  # 礼貌抓取，避免请求过快给对方服务器压力
+            for it in items:
+                if not is_bid_result(it["title"]):
+                    continue
+                if it["link"] in existing_links:
+                    continue
+                record = {
+                    "date": it["date"],
+                    "title": it["title"],
+                    "link": it["link"],
+                    "price": extract_price(it["title"]),
+                    "source": source["name"],
+                    "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                }
+                new_records.append(record)
+                existing_links.add(it["link"])
+
+            time.sleep(1.5)  # 礼貌抓取，避免请求过快给对方服务器压力
 
     all_records = new_records + existing
     all_records.sort(key=lambda r: r.get("date", ""), reverse=True)
