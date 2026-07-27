@@ -55,10 +55,11 @@
       <th style="width:110px;">日期</th>
       <th>标题</th>
       <th style="width:140px;">价格信息</th>
+      <th style="width:120px;">来源</th>
     </tr>
   </thead>
   <tbody id="tableBody">
-    <tr><td colspan="3" class="empty">加载中...</td></tr>
+    <tr><td colspan="4" class="empty">加载中...</td></tr>
   </tbody>
 </table>
 
@@ -72,7 +73,7 @@ function render(records) {
   document.getElementById("countLabel").textContent = `共 ${records.length} 条`;
 
   if (records.length === 0) {
-    body.innerHTML = '<tr><td colspan="3" class="empty">没有找到匹配的记录</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="empty">没有找到匹配的记录</td></tr>';
     return;
   }
 
@@ -81,6 +82,7 @@ function render(records) {
       <td class="date">${r.date || "-"}</td>
       <td><a href="${r.link}" target="_blank" rel="noopener">${r.title}</a></td>
       <td class="price">${r.price || ""}</td>
+      <td>${r.source || ""}</td>
     </tr>
   `).join("");
 }
@@ -105,7 +107,7 @@ fetch("data.json?_=" + Date.now())
   })
   .catch(err => {
     document.getElementById("tableBody").innerHTML =
-      '<tr><td colspan="3" class="empty">数据加载失败，请稍后刷新重试</td></tr>';
+      '<tr><td colspan="4" class="empty">数据加载失败，请稍后刷新重试</td></tr>';
     console.error(err);
   });
 </script>
