@@ -21,18 +21,22 @@
     border: 1px solid #ddd; border-radius: 6px; font-size: 14px;
   }
   .count { font-size: 13px; color: #555; align-self: center; white-space: nowrap; }
-  table {
-    width: 100%; border-collapse: collapse; background: white;
-    border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  .table-wrap {
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
   th, td {
     padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee;
     font-size: 14px; vertical-align: top;
   }
-  th { background: #2c5282; color: white; position: sticky; top: 0; }
+  th { background: #2c5282; color: white; position: sticky; top: 0; white-space: nowrap; }
   tr:hover { background: #f9fbfd; }
   .price { color: #c0392b; font-weight: bold; white-space: nowrap; }
   .date { white-space: nowrap; color: #555; }
+  .source { white-space: nowrap; color: #666; font-size: 12px; }
   a { color: #2c5282; text-decoration: none; }
   a:hover { text-decoration: underline; }
   .empty { text-align: center; padding: 40px; color: #999; }
@@ -42,26 +46,30 @@
 <body>
 
 <h1>⚡ 储能行业中标信息追踪</h1>
-<div class="sub">数据来源：储能招标网公开信息 · 每周一/三/五自动更新</div>
+<div class="sub">仅收录含"招标人/中标人/价格"完整信息的中标结果与中标候选人公示 · 每周一/三/五自动更新</div>
 
 <div class="toolbar">
   <input type="text" id="searchBox" placeholder="搜索：项目名称 / 企业名称 / 地区关键词...">
   <div class="count" id="countLabel"></div>
 </div>
 
+<div class="table-wrap">
 <table>
   <thead>
     <tr>
-      <th style="width:110px;">日期</th>
+      <th style="width:100px;">日期</th>
       <th>标题</th>
-      <th style="width:140px;">价格信息</th>
-      <th style="width:120px;">来源</th>
+      <th style="width:160px;">招标人</th>
+      <th style="width:160px;">中标人/候选人</th>
+      <th style="width:130px;">价格</th>
+      <th style="width:110px;">来源</th>
     </tr>
   </thead>
   <tbody id="tableBody">
-    <tr><td colspan="4" class="empty">加载中...</td></tr>
+    <tr><td colspan="6" class="empty">加载中...</td></tr>
   </tbody>
 </table>
+</div>
 
 <div class="updated" id="lastUpdated"></div>
 
@@ -73,7 +81,7 @@ function render(records) {
   document.getElementById("countLabel").textContent = `共 ${records.length} 条`;
 
   if (records.length === 0) {
-    body.innerHTML = '<tr><td colspan="4" class="empty">没有找到匹配的记录</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="empty">没有找到匹配的记录</td></tr>';
     return;
   }
 
@@ -81,8 +89,10 @@ function render(records) {
     <tr>
       <td class="date">${r.date || "-"}</td>
       <td><a href="${r.link}" target="_blank" rel="noopener">${r.title}</a></td>
+      <td>${r.owner || ""}</td>
+      <td>${r.winner || ""}</td>
       <td class="price">${r.price || ""}</td>
-      <td>${r.source || ""}</td>
+      <td class="source">${r.source || ""}</td>
     </tr>
   `).join("");
 }
@@ -90,7 +100,11 @@ function render(records) {
 function applyFilter() {
   const kw = document.getElementById("searchBox").value.trim().toLowerCase();
   if (!kw) { render(allRecords); return; }
-  const filtered = allRecords.filter(r => r.title.toLowerCase().includes(kw));
+  const filtered = allRecords.filter(r =>
+    (r.title || "").toLowerCase().includes(kw) ||
+    (r.owner || "").toLowerCase().includes(kw) ||
+    (r.winner || "").toLowerCase().includes(kw)
+  );
   render(filtered);
 }
 
@@ -107,7 +121,7 @@ fetch("data.json?_=" + Date.now())
   })
   .catch(err => {
     document.getElementById("tableBody").innerHTML =
-      '<tr><td colspan="4" class="empty">数据加载失败，请稍后刷新重试</td></tr>';
+      '<tr><td colspan="6" class="empty">数据加载失败，请稍后刷新重试</td></tr>';
     console.error(err);
   });
 </script>
